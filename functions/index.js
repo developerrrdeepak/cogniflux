@@ -1,7 +1,7 @@
 const functions = require("firebase-functions");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const genAI = new GoogleGenerativeAI("AIzaSyCG5_mm7w0jQ0UAVk4FVSDRAHuuf-sF5Gc");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 function computeLiveMemory(signals) {
   let confusionScore = "low";
