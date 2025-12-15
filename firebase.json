@@ -8,10 +8,6 @@
     ],
     "rewrites": [
       {
-        "source": "/api/**",
-        "function": "nextjsFunc"
-      },
-      {
         "source": "**",
         "destination": "/index.html"
       }
@@ -20,5 +16,11 @@
   "functions": {
     "source": "functions",
     "runtime": "nodejs18"
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }
