@@ -5,18 +5,18 @@ runConfig:
 
 env:
   - variable: GEMINI_API_KEY
-    secret: GEMINI_API_KEY
+    value: AIzaSyBtLuR0OlYy_XbeedDb7Wk84WREc6jXzZs
   - variable: ELEVENLABS_API_KEY
-    secret: ELEVENLABS_API_KEY
+    value: sk_684f2f6b58b5c1063b38b6ab46af61a426a1fb363b7d1d36
   - variable: CONFLUENT_BOOTSTRAP_SERVER
-    secret: CONFLUENT_BOOTSTRAP_SERVER
+    value: pkc-619z3.us-east1.gcp.confluent.cloud:9092
   - variable: CONFLUENT_API_KEY
-    secret: CONFLUENT_API_KEY
+    value: CW6YQLZEJ74JLGDN
   - variable: CONFLUENT_API_SECRET
-    secret: CONFLUENT_API_SECRET
+    value: cfltszNlQNCGaBzeCLWW77wHtqMwgR4KInypqmehcTYvzqlMXYoRlTp8vGw63N3w
   - variable: CONFLUENT_CLUSTER_ID
-    secret: CONFLUENT_CLUSTER_ID
+    value: lkc-kvqokv
   - variable: DATADOG_API_KEY
-    secret: DATADOG_API_KEY
+    value: 35b62f123a8121e2afa9b3eb7e532ebc
   - variable: DATADOG_SITE
     value: datadoghq.com
