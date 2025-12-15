@@ -425,7 +425,7 @@ export default function Home() {
           </div>
           <div className="flex flex-col">
             <span className="text-xs font-bold tracking-widest text-green-600 dark:text-green-400 uppercase">Adaptive System Online</span>
-            <span className="text-[10px] text-gray-500 font-mono">Gemini 2.5 Flash • Latency: 45ms</span>
+            <span className="text-[10px] text-gray-500 font-mono">Gemini 2.0 Flash • Latency: 45ms</span>
           </div>
         </div>
         

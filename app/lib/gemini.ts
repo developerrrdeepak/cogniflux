@@ -31,7 +31,7 @@ export async function runGemini(
   personaKey: string = "atlas"
 ) {
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash-exp",
   });
 
   const selectedPersona = PERSONAS[personaKey as keyof typeof PERSONAS] || PERSONAS.atlas;
@@ -57,7 +57,7 @@ export async function runGemini(
 }
 
 export async function generateSessionReport(messages: { role: string; text: string }[]) {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
   const conversationText = messages
     .map((m) => `${m.role.toUpperCase()}: ${m.text}`)
