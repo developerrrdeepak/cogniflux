@@ -3,14 +3,20 @@ runConfig:
   maxInstances: 10
   memoryMiB: 512
 
-# Environment variables should be set in Firebase Console:
-# App Hosting → Backend → Environment Variables
-# Required variables:
-# - GEMINI_API_KEY
-# - ELEVENLABS_API_KEY
-# - CONFLUENT_BOOTSTRAP_SERVER
-# - CONFLUENT_API_KEY
-# - CONFLUENT_API_SECRET
-# - CONFLUENT_CLUSTER_ID
-# - DATADOG_API_KEY
-# - DATADOG_SITE
+env:
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
+  - variable: ELEVENLABS_API_KEY
+    secret: ELEVENLABS_API_KEY
+  - variable: CONFLUENT_BOOTSTRAP_SERVER
+    value: pkc-619z3.us-east1.gcp.confluent.cloud:9092
+  - variable: CONFLUENT_API_KEY
+    secret: CONFLUENT_API_KEY
+  - variable: CONFLUENT_API_SECRET
+    secret: CONFLUENT_API_SECRET
+  - variable: CONFLUENT_CLUSTER_ID
+    value: lkc-kvqokv
+  - variable: DATADOG_API_KEY
+    secret: DATADOG_API_KEY
+  - variable: DATADOG_SITE
+    value: datadoghq.com

@@ -10,9 +10,19 @@ type Message = {
   image?: string;
 };
 
+type Chat = {
+  id: string;
+  title: string;
+  messages: Message[];
+  timestamp: number;
+};
+
 export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [memory, setMemory] = useState<any>(null);
   const [signals, setSignals] = useState<string[]>([]);
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
@@ -27,14 +37,85 @@ export default function Home() {
   const [showReport, setShowReport] = useState(false);
   const [reportContent, setReportContent] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [guestStartTime, setGuestStartTime] = useState<number | null>(null);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [isGuest, setIsGuest] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load chats from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('cogniflux-chats');
+    if (saved) setChats(JSON.parse(saved));
+    
+    const guestStart = localStorage.getItem('cogniflux-guest-start');
+    if (guestStart) setGuestStartTime(parseInt(guestStart));
+  }, []);
+
+  // Guest timer check (5 minutes)
+  useEffect(() => {
+    if (!isGuest || !guestStartTime) return;
+    
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - guestStartTime;
+      if (elapsed > 300000) setShowAuthPrompt(true);
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [guestStartTime, isGuest]);
+
+  // Save current chat
+  useEffect(() => {
+    if (messages.length > 0 && currentChatId) {
+      const updatedChats = chats.map(c => 
+        c.id === currentChatId ? { ...c, messages, title: messages[0]?.text.slice(0, 50) || 'New Chat' } : c
+      );
+      setChats(updatedChats);
+      localStorage.setItem('cogniflux-chats', JSON.stringify(updatedChats));
+    }
+  }, [messages]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const startNewChat = () => {
+    const newChat: Chat = {
+      id: Date.now().toString(),
+      title: 'New Chat',
+      messages: [],
+      timestamp: Date.now()
+    };
+    setChats([newChat, ...chats]);
+    setCurrentChatId(newChat.id);
+    setMessages([]);
+    setMemory(null);
+    setSignals([]);
+    setReasoning([]);
+    setShowHint(true);
+  };
+
+  const loadChat = (chatId: string) => {
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+      setCurrentChatId(chatId);
+      setMessages(chat.messages);
+      setShowSidebar(false);
+    }
+  };
+
+  const deleteChat = (chatId: string) => {
+    const updated = chats.filter(c => c.id !== chatId);
+    setChats(updated);
+    localStorage.setItem('cogniflux-chats', JSON.stringify(updated));
+    if (currentChatId === chatId) {
+      setMessages([]);
+      setCurrentChatId(null);
+    }
+  };
 
   const getOrbState = () => {
     if (generatingReport) return "processing";
@@ -79,6 +160,31 @@ export default function Home() {
   async function sendMessage() {
     if ((!input && !selectedImage) || loading) return;
 
+    // Start guest timer on first message
+    if (isGuest && !guestStartTime) {
+      const now = Date.now();
+      setGuestStartTime(now);
+      localStorage.setItem('cogniflux-guest-start', now.toString());
+    }
+
+    // Block if guest time expired
+    if (isGuest && guestStartTime && (Date.now() - guestStartTime > 300000)) {
+      setShowAuthPrompt(true);
+      return;
+    }
+
+    // Start new chat if none exists
+    if (!currentChatId) {
+      const newChat: Chat = {
+        id: Date.now().toString(),
+        title: input.slice(0, 50) || 'New Chat',
+        messages: [],
+        timestamp: Date.now()
+      };
+      setChats([newChat, ...chats]);
+      setCurrentChatId(newChat.id);
+    }
+
     setLoading(true);
     let newSignals = [...signals];
 
@@ -97,6 +203,7 @@ export default function Home() {
 
     setMessages(prev => [...prev, { role: "user", text: input, image: selectedImage || undefined }]);
     setShowHint(false);
+    setIsTyping(true);
     
     const currentInput = input;
     const currentImage = selectedImage;
@@ -123,6 +230,7 @@ export default function Home() {
 
     const data = await res.json();
 
+    setIsTyping(false);
     setMessages(prev => [...prev, { role: "ai", text: data.reply }]);
     const prevMemory = memory;
     setMemory(data.memory);
@@ -207,7 +315,7 @@ export default function Home() {
   };
 
   return (
-    <main className="relative flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-[#030712] text-gray-900 dark:text-white transition-colors duration-500 font-sans">
+    <main className="relative flex h-screen overflow-hidden bg-gray-50 dark:bg-[#030712] text-gray-900 dark:text-white transition-colors duration-500 font-sans">
       
       {/* Background Texture & Glow */}
       <div className="bg-noise" />
@@ -219,6 +327,31 @@ export default function Home() {
          memory?.userLevel === 'expert' ? 'bg-orange-600' :
          'bg-purple-600'
       }`} />
+
+      {/* Auth Prompt Modal */}
+      {showAuthPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <div className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-white/10 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Continue Your Journey</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Sign up to save your chats, unlock unlimited messages, and access advanced features.</p>
+            
+            <div className="space-y-3">
+              <button className="w-full p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all">
+                Sign Up Free
+              </button>
+              <button className="w-full p-3 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl font-medium transition-all">
+                Sign In
+              </button>
+              <button onClick={() => setShowAuthPrompt(false)} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Report Modal */}
       {showReport && (
@@ -241,9 +374,51 @@ export default function Home() {
         </div>
       )}
 
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-72 glass-panel border-r border-gray-200 dark:border-white/10 transform transition-transform duration-300 ${showSidebar ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <div className="flex flex-col h-full p-4">
+          <div className="flex gap-2 mb-4">
+            <button onClick={startNewChat} className="flex-1 p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              New
+            </button>
+            <button onClick={() => {
+              const chatData = JSON.stringify(messages, null, 2);
+              const blob = new Blob([chatData], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `chat-${Date.now()}.json`;
+              a.click();
+            }} className="p-3 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all" title="Export Chat">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin">
+            {chats.map(chat => (
+              <div key={chat.id} className={`group p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-all ${currentChatId === chat.id ? 'bg-blue-500/10 border border-blue-500/20' : ''}`}>
+                <div onClick={() => loadChat(chat.id)} className="flex-1">
+                  <p className="text-sm font-medium truncate">{chat.title}</p>
+                  <p className="text-xs text-gray-500 mt-1">{new Date(chat.timestamp).toLocaleDateString()}</p>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/10 text-red-500 rounded transition-all">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col lg:ml-72">
       {/* Top Bar */}
-      <div className="z-10 flex items-center justify-between p-6 w-full max-w-7xl mx-auto">
+      <div className="z-10 flex items-center justify-between p-4 lg:p-6 w-full border-b border-gray-200 dark:border-white/10 glass-panel">
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowSidebar(!showSidebar)} className="lg:hidden p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
           <div className="relative">
             <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
             <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-50" />
@@ -256,13 +431,26 @@ export default function Home() {
         
         <div className="flex items-center gap-3 glass-panel px-4 py-2 rounded-full">
             {messages.length > 0 && (
+              <>
                 <button
                     onClick={generateReport}
                     disabled={generatingReport}
                     className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-full border border-purple-500/20 hover:bg-purple-500/20 transition-all disabled:opacity-50"
                 >
-                    {generatingReport ? <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/> : "📊 Report"}
+                    {generatingReport ? <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/> : "📊"}
                 </button>
+                <button
+                    onClick={() => {
+                      setMessages([]);
+                      setMemory(null);
+                      setReasoning([]);
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
+                    title="Clear Chat"
+                >
+                    🗑️
+                </button>
+              </>
             )}
             <div className="w-px h-4 bg-gray-300 dark:bg-white/10" />
             <button
@@ -280,7 +468,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="flex flex-1 max-w-7xl mx-auto w-full gap-6 px-6 pb-6 overflow-hidden">
+      <div className="flex flex-1 w-full gap-4 lg:gap-6 px-4 lg:px-6 pb-4 lg:pb-6 overflow-hidden">
         
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col relative rounded-3xl overflow-hidden glass-panel shadow-2xl">
@@ -309,12 +497,17 @@ export default function Home() {
                         </div>
                         <p className="text-gray-600 dark:text-gray-500 max-w-sm">I'm listening to your cognitive signals. Ask me anything, or express confusion, and I'll adapt.</p>
                         {showHint && (
-                            <button 
-                                onClick={() => setInput("I don't understand this code")}
-                                className="text-sm px-4 py-2 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors border border-blue-500/20"
-                            >
-                                Try: "I don't understand"
-                            </button>
+                            <div className="flex flex-wrap gap-2 justify-center">
+                              <button onClick={() => setInput("Explain quantum computing")} className="text-xs px-3 py-2 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors border border-blue-500/20">
+                                  Explain quantum computing
+                              </button>
+                              <button onClick={() => setInput("Help me debug this code")} className="text-xs px-3 py-2 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors border border-purple-500/20">
+                                  Debug code
+                              </button>
+                              <button onClick={() => setInput("What's the weather like?")} className="text-xs px-3 py-2 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors border border-green-500/20">
+                                  Weather info
+                              </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -333,6 +526,20 @@ export default function Home() {
                         </div>
                     </div>
                 ))}
+                
+                {/* Typing Indicator */}
+                {isTyping && (
+                  <div className="flex items-start gap-2 max-w-[80%] animate-[slideInRight_0.3s]">
+                    <div className="p-4 rounded-2xl bg-white/80 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700/50 rounded-bl-none">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}} />
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}} />
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div ref={messagesEndRef} />
             </div>
 
@@ -383,14 +590,19 @@ export default function Home() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                     </button>
                 </div>
-                <div className="text-center mt-2">
-                     <span className="text-[10px] text-gray-500 dark:text-gray-500">Multimodal • Inference-Time • Adaptive</span>
+                <div className="flex items-center justify-between mt-2 text-[10px] text-gray-500">
+                     <span>Multimodal • Inference-Time • Adaptive</span>
+                     {isGuest && guestStartTime && (
+                       <span className="text-orange-500">
+                         ⏱️ Guest: {Math.max(0, Math.floor((300000 - (Date.now() - guestStartTime)) / 60000))}m left
+                       </span>
+                     )}
                 </div>
             </div>
         </div>
 
         {/* Cognitive Side Panel (HUD Style) */}
-        <div className="w-80 flex flex-col gap-4 hidden lg:flex">
+        <div className="w-64 xl:w-80 flex flex-col gap-4 hidden lg:flex">
             {/* Memory Card */}
             <div className={`glass-panel p-6 rounded-3xl transition-all duration-500 border-l-4 ${
                 memory?.confusionScore === 'high' ? 'border-l-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.15)]' :
@@ -462,6 +674,12 @@ export default function Home() {
         </div>
 
       </div>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {showSidebar && (
+        <div onClick={() => setShowSidebar(false)} className="fixed inset-0 bg-black/50 z-40 lg:hidden" />
+      )}
     </main>
   );
 }
