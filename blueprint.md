@@ -9,6 +9,7 @@ This project is a Next.js application integrated with Google Cloud Gemini, Eleve
 - **API Key Security Enhancement:** Modified `app/lib/gemini.ts` to fetch the GEMINI_API_KEY from environment variables to prevent public exposure on GitHub. The `apphosting.yaml` file is configured to use a Firebase App Hosting secret for this variable.
 - **Bug Fix:** Corrected an import error in `app/components/ThemeToggle.tsx`. The `useTheme` hook was incorrectly imported from a local provider instead of the `next-themes` package, causing the build to fail.
 - **Authentication:** Implemented user authentication using Firebase Authentication. Added sign-up, login, and profile pages.
+- **Build Troubleshooting:** Addressed persistent build failures by correcting the Node.js engine version in `package.json` and ensuring a clean `npm install`.
 
 ## Features
 
