@@ -15,7 +15,7 @@ env:
   - variable: CONFLUENT_API_SECRET
     secret: CONFLUENT_API_SECRET
   - variable: CONFLUENT_CLUSTER_ID
-    value: lkc-kvqokv
+    secret: CONFLUENT_CLUSTER_ID
   - variable: DATADOG_API_KEY
     secret: DATADOG_API_KEY
   - variable: DATADOG_SITE
