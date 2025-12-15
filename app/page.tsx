@@ -54,13 +54,13 @@ export default function Home() {
     if (guestStart) setGuestStartTime(parseInt(guestStart));
   }, []);
 
-  // Guest timer check (5 minutes)
+  // Guest timer check (30 minutes)
   useEffect(() => {
     if (!isGuest || !guestStartTime) return;
     
     const interval = setInterval(() => {
       const elapsed = Date.now() - guestStartTime;
-      if (elapsed > 300000) setShowAuthPrompt(true);
+      if (elapsed > 1800000) setShowAuthPrompt(true); // 30 minutes
     }, 10000);
     
     return () => clearInterval(interval);
@@ -168,7 +168,7 @@ export default function Home() {
     }
 
     // Block if guest time expired
-    if (isGuest && guestStartTime && (Date.now() - guestStartTime > 300000)) {
+    if (isGuest && guestStartTime && (Date.now() - guestStartTime > 1800000)) {
       setShowAuthPrompt(true);
       return;
     }
@@ -339,10 +339,10 @@ export default function Home() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">Sign up to save your chats, unlock unlimited messages, and access advanced features.</p>
             
             <div className="space-y-3">
-              <button className="w-full p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all">
+              <button onClick={() => window.location.href = '/signup'} className="w-full p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all">
                 Sign Up Free
               </button>
-              <button className="w-full p-3 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl font-medium transition-all">
+              <button onClick={() => window.location.href = '/login'} className="w-full p-3 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl font-medium transition-all">
                 Sign In
               </button>
               <button onClick={() => setShowAuthPrompt(false)} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
@@ -594,7 +594,7 @@ export default function Home() {
                      <span>Multimodal • Inference-Time • Adaptive</span>
                      {isGuest && guestStartTime && (
                        <span className="text-orange-500">
-                         ⏱️ Guest: {Math.max(0, Math.floor((300000 - (Date.now() - guestStartTime)) / 60000))}m left
+                         ⏱️ Guest: {Math.max(0, Math.floor((1800000 - (Date.now() - guestStartTime)) / 60000))}m left
                        </span>
                      )}
                 </div>
