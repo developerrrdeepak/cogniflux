@@ -5,7 +5,7 @@ runConfig:
 
 env:
   - variable: GEMINI_API_KEY
-    value: AIzaSyBtLuR0OlYy_XbeedDb7Wk84WREc6jXzZs
+    value: AIzaSyD41nKr0Px75Hc8FD65Z-GM3K2j3iqr5Q0
   - variable: ELEVENLABS_API_KEY
     value: sk_684f2f6b58b5c1063b38b6ab46af61a426a1fb363b7d1d36
   - variable: CONFLUENT_BOOTSTRAP_SERVER
