@@ -8,6 +8,8 @@ type Message = {
   role: "user" | "ai";
   text: string;
   image?: string;
+  reaction?: string;
+  timestamp?: number;
 };
 
 type Chat = {
@@ -41,7 +43,12 @@ export default function Home() {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [isGuest, setIsGuest] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,7 +59,20 @@ export default function Home() {
     
     const guestStart = localStorage.getItem('cogniflux-guest-start');
     if (guestStart) setGuestStartTime(parseInt(guestStart));
+    
+    // Restore draft
+    const draft = localStorage.getItem('cogniflux-draft');
+    if (draft) setInput(draft);
   }, []);
+
+  // Auto-save draft
+  useEffect(() => {
+    if (input) {
+      localStorage.setItem('cogniflux-draft', input);
+    } else {
+      localStorage.removeItem('cogniflux-draft');
+    }
+  }, [input]);
 
   // Guest timer check (30 minutes)
   useEffect(() => {
@@ -201,7 +221,7 @@ export default function Home() {
       newSignals.push("frustration");
     }
 
-    setMessages(prev => [...prev, { role: "user", text: input, image: selectedImage || undefined }]);
+    setMessages(prev => [...prev, { role: "user", text: input, image: selectedImage || undefined, timestamp: Date.now() }]);
     setShowHint(false);
     setIsTyping(true);
     
@@ -210,6 +230,7 @@ export default function Home() {
     
     setInput("");
     setSelectedImage(null);
+    localStorage.removeItem('cogniflux-draft');
 
     let imageToSend = null;
     if (currentImage) {
@@ -231,7 +252,7 @@ export default function Home() {
     const data = await res.json();
 
     setIsTyping(false);
-    setMessages(prev => [...prev, { role: "ai", text: data.reply }]);
+    setMessages(prev => [...prev, { role: "ai", text: data.reply, timestamp: Date.now() }]);
     const prevMemory = memory;
     setMemory(data.memory);
     setMemoryUpdated(true);
@@ -328,6 +349,35 @@ export default function Home() {
          'bg-purple-600'
       }`} />
 
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <div className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-white/10">
+            <h2 className="text-2xl font-bold mb-4 text-center">Share Chat</h2>
+            <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg break-all text-sm">
+              {shareLink || 'Generating link...'}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shareLink);
+                  alert('Link copied!');
+                }}
+                className="flex-1 p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all"
+              >
+                Copy Link
+              </button>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="flex-1 p-3 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl font-medium transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Auth Prompt Modal */}
       {showAuthPrompt && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
@@ -382,25 +432,57 @@ export default function Home() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               New
             </button>
-            <button onClick={() => {
-              const chatData = JSON.stringify(messages, null, 2);
-              const blob = new Blob([chatData], { type: 'application/json' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `chat-${Date.now()}.json`;
-              a.click();
-            }} className="p-3 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all" title="Export Chat">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            </button>
+            <div className="relative group">
+              <button className="p-3 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all" title="Export Chat">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              </button>
+              <div className="absolute top-full mt-2 left-0 hidden group-hover:block bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-2 w-40 z-50">
+                <button onClick={() => {
+                  const text = messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n\n');
+                  const blob = new Blob([text], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `chat-${Date.now()}.txt`;
+                  a.click();
+                }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                  📄 Text File
+                </button>
+                <button onClick={() => {
+                  const chatData = JSON.stringify(messages, null, 2);
+                  const blob = new Blob([chatData], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `chat-${Date.now()}.json`;
+                  a.click();
+                }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                  📋 JSON
+                </button>
+                <button onClick={() => window.print()} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                  🖨️ Print/PDF
+                </button>
+              </div>
+            </div>
           </div>
           
+          <input
+            type="text"
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full p-2 mb-3 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          
           <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin">
-            {chats.map(chat => (
+            {chats.filter(chat => chat.title.toLowerCase().includes(searchQuery.toLowerCase())).map(chat => (
               <div key={chat.id} className={`group p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-all ${currentChatId === chat.id ? 'bg-blue-500/10 border border-blue-500/20' : ''}`}>
                 <div onClick={() => loadChat(chat.id)} className="flex-1">
                   <p className="text-sm font-medium truncate">{chat.title}</p>
-                  <p className="text-xs text-gray-500 mt-1">{new Date(chat.timestamp).toLocaleDateString()}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-gray-500">{new Date(chat.timestamp).toLocaleDateString()}</p>
+                    <span className="text-xs text-gray-400">• {chat.messages.length} msgs</span>
+                  </div>
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/10 text-red-500 rounded transition-all">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -441,6 +523,17 @@ export default function Home() {
                 </button>
                 <button
                     onClick={() => {
+                      const link = `${window.location.origin}/chat/${currentChatId}`;
+                      setShareLink(link);
+                      setShowShareModal(true);
+                    }}
+                    className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all"
+                    title="Share Chat"
+                >
+                    🔗
+                </button>
+                <button
+                    onClick={() => {
                       setMessages([]);
                       setMemory(null);
                       setReasoning([]);
@@ -466,16 +559,23 @@ export default function Home() {
               </button>
               <ThemeToggle />
             </div>
-            {isGuest && (
-              <div className="flex items-center gap-2">
-                <a href="/login" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all">
-                  Sign In
-                </a>
-                <a href="/signup" className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-full transition-all">
-                  Sign Up
-                </a>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {messages.length > 0 && (
+                <div className="glass-panel px-3 py-1.5 rounded-full text-xs text-gray-600 dark:text-gray-400">
+                  {messages.length} messages • {messages.reduce((acc, m) => acc + m.text.split(' ').length, 0)} words
+                </div>
+              )}
+              {isGuest && (
+                <>
+                  <a href="/login" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all">
+                    Sign In
+                  </a>
+                  <a href="/signup" className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-full transition-all">
+                    Sign Up
+                  </a>
+                </>
+              )}
+            </div>
         </div>
       </div>
 
@@ -500,7 +600,15 @@ export default function Home() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-8 pt-32 space-y-6 scrollbar-thin">
+            <div 
+              ref={messagesContainerRef}
+              onScroll={(e) => {
+                const target = e.target as HTMLDivElement;
+                const isScrolledUp = target.scrollHeight - target.scrollTop - target.clientHeight > 100;
+                setShowScrollButton(isScrolledUp);
+              }}
+              className="flex-1 overflow-y-auto p-8 pt-32 space-y-6 scrollbar-thin relative"
+            >
                 <div className={`transition-all duration-700 ${messages.length ? "opacity-0 h-0" : "opacity-100 h-auto"}`}>
                     <div className="flex flex-col items-center justify-center mt-12 gap-4 text-center">
                         <div className="p-4 rounded-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 animate-float">
@@ -509,14 +617,14 @@ export default function Home() {
                         <p className="text-gray-600 dark:text-gray-500 max-w-sm">I'm listening to your cognitive signals. Ask me anything, or express confusion, and I'll adapt.</p>
                         {showHint && (
                             <div className="flex flex-wrap gap-2 justify-center">
-                              <button onClick={() => setInput("Explain quantum computing")} className="text-xs px-3 py-2 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors border border-blue-500/20">
-                                  Explain quantum computing
+                              <button onClick={() => setInput("Write a Python function to sort a list")} className="text-xs px-3 py-2 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors border border-blue-500/20">
+                                  💻 Code example
                               </button>
-                              <button onClick={() => setInput("Help me debug this code")} className="text-xs px-3 py-2 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors border border-purple-500/20">
-                                  Debug code
+                              <button onClick={() => setInput("Explain machine learning in simple terms")} className="text-xs px-3 py-2 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors border border-purple-500/20">
+                                  🧠 Learn concept
                               </button>
-                              <button onClick={() => setInput("What's the weather like?")} className="text-xs px-3 py-2 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors border border-green-500/20">
-                                  Weather info
+                              <button onClick={() => setInput("Help me brainstorm startup ideas")} className="text-xs px-3 py-2 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors border border-green-500/20">
+                                  💡 Brainstorm
                               </button>
                             </div>
                         )}
@@ -524,8 +632,8 @@ export default function Home() {
                 </div>
 
                 {messages.map((msg, i) => (
-                    <div key={i} className={`flex flex-col gap-2 max-w-[80%] ${msg.role === "user" ? "ml-auto items-end" : "mr-auto items-start"} animate-[slideInRight_0.3s]`}>
-                        <div className={`p-4 rounded-2xl backdrop-blur-md border ${
+                    <div key={i} className={`group flex flex-col gap-2 max-w-[80%] ${msg.role === "user" ? "ml-auto items-end" : "mr-auto items-start"} animate-[slideInRight_0.3s]`}>
+                        <div className={`relative p-4 rounded-2xl backdrop-blur-md border ${
                             msg.role === "user" 
                                 ? "bg-blue-600/90 dark:bg-blue-600/20 border-blue-500/30 text-white rounded-br-none shadow-[0_4px_15px_rgba(37,99,235,0.2)]" 
                                 : "bg-white/80 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700/50 text-gray-800 dark:text-gray-100 rounded-bl-none shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
@@ -533,7 +641,76 @@ export default function Home() {
                             {msg.image && (
                                 <img src={msg.image} alt="User Upload" className="max-w-xs h-auto rounded-lg mb-3 border border-white/10 shadow-lg" />
                             )}
-                            <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              {msg.text.includes('```') ? (
+                                msg.text.split('```').map((block, idx) => {
+                                  if (idx % 2 === 0) {
+                                    return <p key={idx} className="whitespace-pre-wrap leading-relaxed">{block}</p>;
+                                  }
+                                  const [lang, ...code] = block.split('\n');
+                                  return (
+                                    <div key={idx} className="relative my-3">
+                                      <div className="absolute top-2 right-2 text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">{lang || 'code'}</div>
+                                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+                                        <code>{code.join('\n')}</code>
+                                      </pre>
+                                      <button
+                                        onClick={() => navigator.clipboard.writeText(code.join('\n'))}
+                                        className="absolute bottom-2 right-2 p-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white"
+                                      >
+                                        Copy code
+                                      </button>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                              )}
+                            </div>
+                            {msg.role === "ai" && (
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(msg.text)}
+                                  className="p-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all"
+                                  title="Copy"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                </button>
+                                {i === messages.length - 1 && (
+                                  <button
+                                    onClick={() => {
+                                      setMessages(messages.slice(0, -1));
+                                      sendMessage();
+                                    }}
+                                    className="p-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all"
+                                    title="Regenerate"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                              {msg.timestamp && (
+                                <span>{new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              )}
+                              <span>•</span>
+                              <span>{msg.text.split(' ').length} words</span>
+                              {msg.role === "ai" && (
+                                <div className="flex gap-1 ml-auto">
+                                  <button onClick={() => {
+                                    const updated = [...messages];
+                                    updated[i].reaction = updated[i].reaction === '👍' ? undefined : '👍';
+                                    setMessages(updated);
+                                  }} className={`hover:scale-125 transition-transform ${msg.reaction === '👍' ? 'scale-125' : ''}`}>👍</button>
+                                  <button onClick={() => {
+                                    const updated = [...messages];
+                                    updated[i].reaction = updated[i].reaction === '👎' ? undefined : '👎';
+                                    setMessages(updated);
+                                  }} className={`hover:scale-125 transition-transform ${msg.reaction === '👎' ? 'scale-125' : ''}`}>👎</button>
+                                </div>
+                              )}
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -552,6 +729,16 @@ export default function Home() {
                 )}
                 
                 <div ref={messagesEndRef} />
+                
+                {/* Scroll to Bottom Button */}
+                {showScrollButton && (
+                  <button
+                    onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="fixed bottom-32 right-8 p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg transition-all animate-bounce"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                  </button>
+                )}
             </div>
 
             {/* Input Area */}
@@ -602,7 +789,7 @@ export default function Home() {
                     </button>
                 </div>
                 <div className="flex items-center justify-between mt-2 text-[10px] text-gray-500">
-                     <span>Multimodal • Inference-Time • Adaptive</span>
+                     <span>Multimodal • Inference-Time • Adaptive • <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">Enter</kbd> to send</span>
                      {isGuest && guestStartTime && (
                        <span className="text-orange-500">
                          ⏱️ Guest: {Math.max(0, Math.floor((1800000 - (Date.now() - guestStartTime)) / 60000))}m left
