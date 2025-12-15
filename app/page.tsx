@@ -17,6 +17,8 @@ type Chat = {
   title: string;
   messages: Message[];
   timestamp: number;
+  pinned?: boolean;
+  folder?: string;
 };
 
 export default function Home() {
@@ -47,8 +49,30 @@ export default function Home() {
   const [shareLink, setShareLink] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [readingMessageIndex, setReadingMessageIndex] = useState<number | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<string>("all");
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'k') {
+          e.preventDefault();
+          startNewChat();
+        } else if (e.key === '/') {
+          e.preventDefault();
+          setShowShortcuts(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +158,37 @@ export default function Home() {
     if (currentChatId === chatId) {
       setMessages([]);
       setCurrentChatId(null);
+    }
+  };
+
+  const togglePinChat = (chatId: string) => {
+    const updated = chats.map(c => c.id === chatId ? {...c, pinned: !c.pinned} : c);
+    setChats(updated);
+    localStorage.setItem('cogniflux-chats', JSON.stringify(updated));
+  };
+
+  const speakMessage = (text: string, index: number) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.onstart = () => setReadingMessageIndex(index);
+      utterance.onend = () => setReadingMessageIndex(null);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const editMessage = (index: number) => {
+    setEditingMessageIndex(index);
+    setEditText(messages[index].text);
+  };
+
+  const saveEdit = () => {
+    if (editingMessageIndex !== null) {
+      const updated = [...messages];
+      updated[editingMessageIndex].text = editText;
+      setMessages(updated);
+      setEditingMessageIndex(null);
     }
   };
 
@@ -349,6 +404,36 @@ export default function Home() {
          'bg-purple-600'
       }`} />
 
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcuts && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4" onClick={() => setShowShortcuts(false)}>
+          <div className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-white/10" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-6 text-center">⌨️ Keyboard Shortcuts</h2>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <span>New Chat</span>
+                <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Ctrl + K</kbd>
+              </div>
+              <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <span>Send Message</span>
+                <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Enter</kbd>
+              </div>
+              <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <span>Show Shortcuts</span>
+                <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Ctrl + /</kbd>
+              </div>
+              <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <span>Focus Input</span>
+                <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">/</kbd>
+              </div>
+            </div>
+            <button onClick={() => setShowShortcuts(false)} className="w-full mt-6 p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all">
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Share Modal */}
       {showShareModal && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
@@ -474,19 +559,47 @@ export default function Home() {
             className="w-full p-2 mb-3 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           
+          <div className="flex gap-1 mb-3 overflow-x-auto">
+            {['all', 'work', 'personal', 'code'].map(folder => (
+              <button
+                key={folder}
+                onClick={() => setSelectedFolder(folder)}
+                className={`px-3 py-1 text-xs rounded-full whitespace-nowrap transition-all ${
+                  selectedFolder === folder
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {folder === 'all' ? '📁 All' : folder === 'work' ? '💼 Work' : folder === 'personal' ? '👤 Personal' : '💻 Code'}
+              </button>
+            ))}
+          </div>
+          
           <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin">
-            {chats.filter(chat => chat.title.toLowerCase().includes(searchQuery.toLowerCase())).map(chat => (
+            {chats
+              .filter(chat => chat.title.toLowerCase().includes(searchQuery.toLowerCase()))
+              .filter(chat => selectedFolder === 'all' || chat.folder === selectedFolder)
+              .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+              .map(chat => (
               <div key={chat.id} className={`group p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-all ${currentChatId === chat.id ? 'bg-blue-500/10 border border-blue-500/20' : ''}`}>
                 <div onClick={() => loadChat(chat.id)} className="flex-1">
-                  <p className="text-sm font-medium truncate">{chat.title}</p>
+                  <div className="flex items-center gap-1">
+                    {chat.pinned && <span className="text-xs">📌</span>}
+                    <p className="text-sm font-medium truncate">{chat.title}</p>
+                  </div>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-xs text-gray-500">{new Date(chat.timestamp).toLocaleDateString()}</p>
                     <span className="text-xs text-gray-400">• {chat.messages.length} msgs</span>
                   </div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/10 text-red-500 rounded transition-all">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
+                <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); togglePinChat(chat.id); }} className="p-1 hover:bg-yellow-500/10 text-yellow-500 rounded transition-all">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }} className="p-1 hover:bg-red-500/10 text-red-500 rounded transition-all">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -520,6 +633,13 @@ export default function Home() {
                     className="text-xs font-medium text-purple-600 dark:text-purple-300 hover:text-purple-500 transition-all disabled:opacity-50"
                 >
                     {generatingReport ? <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/> : "📊"}
+                </button>
+                <button
+                    onClick={() => setShowShortcuts(true)}
+                    className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400 transition-all"
+                    title="Keyboard Shortcuts"
+                >
+                    ⌨️
                 </button>
                 <button
                     onClick={() => {
@@ -641,7 +761,21 @@ export default function Home() {
                             {msg.image && (
                                 <img src={msg.image} alt="User Upload" className="max-w-xs h-auto rounded-lg mb-3 border border-white/10 shadow-lg" />
                             )}
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                            {editingMessageIndex === i ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  className="w-full p-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  rows={3}
+                                />
+                                <div className="flex gap-2">
+                                  <button onClick={saveEdit} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm">Save</button>
+                                  <button onClick={() => setEditingMessageIndex(null)} className="px-3 py-1 bg-gray-300 dark:bg-gray-700 rounded-lg text-sm">Cancel</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="prose prose-sm dark:prose-invert max-w-none">
                               {msg.text.includes('```') ? (
                                 msg.text.split('```').map((block, idx) => {
                                   if (idx % 2 === 0) {
@@ -667,8 +801,15 @@ export default function Home() {
                                 <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
                               )}
                             </div>
-                            {msg.role === "ai" && (
+                            {editingMessageIndex !== i && (
                               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                                <button
+                                  onClick={() => speakMessage(msg.text, i)}
+                                  className={`p-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all ${readingMessageIndex === i ? 'animate-pulse bg-green-500/20' : ''}`}
+                                  title="Read aloud"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                                </button>
                                 <button
                                   onClick={() => navigator.clipboard.writeText(msg.text)}
                                   className="p-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all"
@@ -676,7 +817,16 @@ export default function Home() {
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                                 </button>
-                                {i === messages.length - 1 && (
+                                {msg.role === "user" && (
+                                  <button
+                                    onClick={() => editMessage(i)}
+                                    className="p-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all"
+                                    title="Edit"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  </button>
+                                )}
+                                {msg.role === "ai" && i === messages.length - 1 && (
                                   <button
                                     onClick={() => {
                                       setMessages(messages.slice(0, -1));
@@ -689,6 +839,7 @@ export default function Home() {
                                   </button>
                                 )}
                               </div>
+                            )}
                             )}
                             <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
                               {msg.timestamp && (
