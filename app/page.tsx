@@ -429,13 +429,13 @@ export default function Home() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3 glass-panel px-4 py-2 rounded-full">
+        <div className="flex items-center gap-3">
             {messages.length > 0 && (
-              <>
+              <div className="flex items-center gap-2 glass-panel px-3 py-1.5 rounded-full">
                 <button
                     onClick={generateReport}
                     disabled={generatingReport}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-full border border-purple-500/20 hover:bg-purple-500/20 transition-all disabled:opacity-50"
+                    className="text-xs font-medium text-purple-600 dark:text-purple-300 hover:text-purple-500 transition-all disabled:opacity-50"
                 >
                     {generatingReport ? <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/> : "📊"}
                 </button>
@@ -445,26 +445,37 @@ export default function Home() {
                       setMemory(null);
                       setReasoning([]);
                     }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
+                    className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
                     title="Clear Chat"
                 >
                     🗑️
                 </button>
-              </>
+              </div>
             )}
-            <div className="w-px h-4 bg-gray-300 dark:bg-white/10" />
-            <button
-                onClick={() => setAudioEnabled(!audioEnabled)}
-                className={`p-1.5 rounded-full transition-all ${audioEnabled ? 'text-blue-500 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-400/10 shadow-[0_0_10px_rgba(59,130,246,0.2)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
-                title={audioEnabled ? "Voice On" : "Voice Off"}
-            >
-                {audioEnabled ? (
-                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-4 0c-4.01.91-7 4.49-7 8.77s2.99 7.86 7 8.77v-2.06c-2.89-.86-5-3.54-5-6.71s2.11-5.85 5-6.71V3.23zM9 15c0 1.66 1.34 3 3 3s3-1.34 3-3V9c0-1.66-1.34-3-3-3S9 7.34 9 9v6z"/></svg>
-                ) : (
-                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 11h-1.7c0 5.8-4.7 9-9.1 9-2.9 0-5.4-1.4-7-3.6l1.4-1.4c1.2 1.6 3.2 2.7 5.6 2.7 3.5 0 6.7-2.6 6.7-6.7h-1.6l2.9-2.9 2.8 2.9zM7.8 7.8L5.4 5.4C4.3 6.4 3.5 7.6 3 9h1.7c.4-.9 1.1-1.7 1.8-2.4l1.3 1.2zM12 3c-1.6 0-3 1.3-3 3v2l2 2V6c0-.6.4-1 1-1s1 .4 1 1v2.6l2 2V6c0-1.7-1.4-3-3-3z"/></svg>
-                )}
-            </button>
-            <ThemeToggle />
+            <div className="flex items-center gap-2 glass-panel px-3 py-1.5 rounded-full">
+              <button
+                  onClick={() => setAudioEnabled(!audioEnabled)}
+                  className={`p-1 rounded-full transition-all ${audioEnabled ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400'}`}
+                  title={audioEnabled ? "Voice On" : "Voice Off"}
+              >
+                  {audioEnabled ? (
+                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-4 0c-4.01.91-7 4.49-7 8.77s2.99 7.86 7 8.77v-2.06c-2.89-.86-5-3.54-5-6.71s2.11-5.85 5-6.71V3.23zM9 15c0 1.66 1.34 3 3 3s3-1.34 3-3V9c0-1.66-1.34-3-3-3S9 7.34 9 9v6z"/></svg>
+                  ) : (
+                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 11h-1.7c0 5.8-4.7 9-9.1 9-2.9 0-5.4-1.4-7-3.6l1.4-1.4c1.2 1.6 3.2 2.7 5.6 2.7 3.5 0 6.7-2.6 6.7-6.7h-1.6l2.9-2.9 2.8 2.9zM7.8 7.8L5.4 5.4C4.3 6.4 3.5 7.6 3 9h1.7c.4-.9 1.1-1.7 1.8-2.4l1.3 1.2zM12 3c-1.6 0-3 1.3-3 3v2l2 2V6c0-.6.4-1 1-1s1 .4 1 1v2.6l2 2V6c0-1.7-1.4-3-3-3z"/></svg>
+                  )}
+              </button>
+              <ThemeToggle />
+            </div>
+            {isGuest && (
+              <div className="flex items-center gap-2">
+                <a href="/login" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all">
+                  Sign In
+                </a>
+                <a href="/signup" className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-full transition-all">
+                  Sign Up
+                </a>
+              </div>
+            )}
         </div>
       </div>
 
