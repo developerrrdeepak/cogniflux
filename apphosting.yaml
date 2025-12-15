@@ -20,5 +20,24 @@ env:
     secret: DATADOG_API_KEY
   - variable: DATADOG_SITE
     value: datadoghq.com
-
-# Added to force a change for git
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyAKjSJooSMGotKk42GeLz763lHaGuGLluI
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: cogniflux1.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: cogniflux1
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: cogniflux1.firebasestorage.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "244615072818"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:244615072818:web:d53ca336d8a85b4b10802b"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: G-K1VPQLKCDK
+    availability: [BUILD, RUNTIME]

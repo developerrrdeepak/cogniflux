@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "../firebase/config";
 
+export const dynamic = 'force-dynamic';
+
 const Profile = () => {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
