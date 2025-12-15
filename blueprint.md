@@ -10,6 +10,7 @@ This project is a Next.js application integrated with Google Cloud Gemini, Eleve
 - **Bug Fix:** Corrected an import error in `app/components/ThemeToggle.tsx`. The `useTheme` hook was incorrectly imported from a local provider instead of the `next-themes` package, causing the build to fail.
 - **Authentication:** Implemented user authentication using Firebase Authentication. Added sign-up, login, and profile pages.
 - **Build Troubleshooting:** Addressed persistent build failures by correcting the Node.js engine version in `package.json` and ensuring a clean `npm install`.
+- **Firebase Initialization Fix:** Corrected the Firebase initialization logic in `app/firebase/config.ts` to prevent build failures caused by an undefined `app` variable.
 
 ## Features
 
