@@ -35,11 +35,21 @@ const SignUp = () => {
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
       await signInWithPopup(auth, provider);
       localStorage.removeItem('cogniflux-guest-start');
       router.push("/");
     } catch (error: any) {
-      setError(error.message);
+      console.error('Google Sign In Error:', error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        setError('Sign in cancelled');
+      } else if (error.code === 'auth/unauthorized-domain') {
+        setError('This domain is not authorized. Please enable it in Firebase Console.');
+      } else {
+        setError(error.message || 'Failed to sign in with Google');
+      }
     } finally {
       setLoading(false);
     }
