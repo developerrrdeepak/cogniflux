@@ -6,3 +6,4 @@ out/
 functions/node_modules/
 functions/lib/
 *.log
+apphosting.yaml
